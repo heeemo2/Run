@@ -1,24 +1,23 @@
-let goalKm = 0;
+let watchId;
 let totalDistance = 0;
 let lastPosition = null;
-let watchId = null;
-let points = [];
-
-let chart;
+let goalKm = 0;
 
 function startWalking() {
+
   goalKm = parseFloat(document.getElementById("goal").value);
 
-  if (!goalKm || goalKm <= 0) {
-    alert("حدد عدد الكيلوات أولاً");
+  if (!goalKm) {
+    alert("حدد الهدف أولاً");
     return;
   }
 
-  totalDistance = 0;
-  lastPosition = null;
-  points = [];
+  if (!navigator.geolocation) {
+    alert("جهازك لا يدعم GPS");
+    return;
+  }
 
-  speak("بدأنا المشي، الله يقويك");
+  alert("تم تشغيل تتبع الموقع");
 
   watchId = navigator.geolocation.watchPosition(
     updatePosition,
@@ -32,27 +31,28 @@ function startWalking() {
 }
 
 function updatePosition(position) {
+
+  console.log("GPS يعمل");
+
   const lat = position.coords.latitude;
   const lng = position.coords.longitude;
 
   if (lastPosition) {
-    const distance = calculateDistance(
+
+    const d = calculateDistance(
       lastPosition.lat,
       lastPosition.lng,
       lat,
       lng
     );
 
-    totalDistance += distance;
+    totalDistance += d;
 
     document.getElementById("distance").textContent =
       totalDistance.toFixed(2);
 
-    points.push(totalDistance.toFixed(2));
-    drawChart();
-
     if (totalDistance >= goalKm) {
-      speak(`مبروك وصلت ${goalKm} كيلو، كفو والله`);
+      speak(`مبروك وصلت ${goalKm} كيلو`);
       navigator.geolocation.clearWatch(watchId);
     }
   }
@@ -60,71 +60,27 @@ function updatePosition(position) {
   lastPosition = { lat, lng };
 }
 
+function locationError(err) {
+  alert("فشل GPS: " + err.message);
+}
+
 function calculateDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLon = (lon2-lon1) * Math.PI/180;
 
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) *
-    Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) *
-    Math.sin(dLon / 2);
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1*Math.PI/180) *
+    Math.cos(lat2*Math.PI/180) *
+    Math.sin(dLon/2) *
+    Math.sin(dLon/2);
 
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
 
 function speak(text) {
   const msg = new SpeechSynthesisUtterance(text);
   msg.lang = "ar-SA";
-  msg.rate = 1;
   speechSynthesis.speak(msg);
-}
-
-function locationError() {
-  alert("رجاءً فعّل GPS واسمح بالموقع");
-}
-
-function drawChart() {
-  const ctx = document.getElementById("chart");
-
-  if (chart) {
-    chart.destroy();
-  }
-
-  chart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: points.map((_, i) => i + 1),
-      datasets: [
-        {
-          label: "المسافة (كم)",
-          data: points,
-          borderColor: "#4CAF50",
-          backgroundColor: "transparent",
-          tension: 0.3
-        }
-      ]
-    },
-    options: {
-      plugins: {
-        legend: {
-          labels: {
-            color: "#fff"
-          }
-        }
-      },
-      scales: {
-        x: {
-          ticks: { color: "#aaa" }
-        },
-        y: {
-          ticks: { color: "#aaa" }
-        }
-      }
-    }
-  });
 }
