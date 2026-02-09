@@ -1,97 +1,130 @@
-let watchId;
-let startTime;
-let lastPos = null;
-let distance = 0;
-let timer;
+let goalKm = 0;
+let totalDistance = 0;
+let lastPosition = null;
+let watchId = null;
+let points = [];
 
-const timeEl = document.getElementById('time');
-const distEl = document.getElementById('distance');
-const calEl = document.getElementById('calories');
-const statusEl = document.getElementById('status');
-const beep = document.getElementById('beep');
+let chart;
 
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const resetBtn = document.getElementById('resetBtn');
+function startWalking() {
+  goalKm = parseFloat(document.getElementById("goal").value);
 
-function toRad(v) {
-  return v * Math.PI / 180;
-}
-
-function calcDistance(p1, p2) {
-  const R = 6371;
-  const dLat = toRad(p2.lat - p1.lat);
-  const dLon = toRad(p2.lon - p1.lon);
-  const a =
-    Math.sin(dLat/2) ** 2 +
-    Math.cos(toRad(p1.lat)) *
-    Math.cos(toRad(p2.lat)) *
-    Math.sin(dLon/2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-}
-
-function startTimer() {
-  startTime = Date.now();
-  timer = setInterval(() => {
-    const s = Math.floor((Date.now() - startTime) / 1000);
-    const m = Math.floor(s / 60);
-    timeEl.textContent =
-      String(m).padStart(2,'0') + ':' +
-      String(s % 60).padStart(2,'0');
-  }, 1000);
-}
-
-function startWalk() {
-  if (!navigator.geolocation) {
-    alert('GPS غير مدعوم');
+  if (!goalKm || goalKm <= 0) {
+    alert("حدد عدد الكيلوات أولاً");
     return;
   }
 
-  statusEl.textContent = '📡 جارٍ التتبع...';
-  startBtn.disabled = true;
-  stopBtn.disabled = false;
+  totalDistance = 0;
+  lastPosition = null;
+  points = [];
 
-  startTimer();
+  speak("بدأنا المشي، الله يقويك");
 
-  watchId = navigator.geolocation.watchPosition(pos => {
-    const current = {
-      lat: pos.coords.latitude,
-      lon: pos.coords.longitude
-    };
+  watchId = navigator.geolocation.watchPosition(
+    updatePosition,
+    locationError,
+    {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 10000
+    }
+  );
+}
 
-    if (lastPos) {
-      distance += calcDistance(lastPos, current);
-      distEl.textContent = distance.toFixed(2);
-      calEl.textContent = Math.floor(distance * 60);
+function updatePosition(position) {
+  const lat = position.coords.latitude;
+  const lng = position.coords.longitude;
 
-      if (Math.floor(distance) > Math.floor(distance - 0.01)) {
-        beep.play();
+  if (lastPosition) {
+    const distance = calculateDistance(
+      lastPosition.lat,
+      lastPosition.lng,
+      lat,
+      lng
+    );
+
+    totalDistance += distance;
+
+    document.getElementById("distance").textContent =
+      totalDistance.toFixed(2);
+
+    points.push(totalDistance.toFixed(2));
+    drawChart();
+
+    if (totalDistance >= goalKm) {
+      speak(`مبروك وصلت ${goalKm} كيلو، كفو والله`);
+      navigator.geolocation.clearWatch(watchId);
+    }
+  }
+
+  lastPosition = { lat, lng };
+}
+
+function calculateDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) *
+    Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) *
+    Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
+function speak(text) {
+  const msg = new SpeechSynthesisUtterance(text);
+  msg.lang = "ar-SA";
+  msg.rate = 1;
+  speechSynthesis.speak(msg);
+}
+
+function locationError() {
+  alert("رجاءً فعّل GPS واسمح بالموقع");
+}
+
+function drawChart() {
+  const ctx = document.getElementById("chart");
+
+  if (chart) {
+    chart.destroy();
+  }
+
+  chart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: points.map((_, i) => i + 1),
+      datasets: [
+        {
+          label: "المسافة (كم)",
+          data: points,
+          borderColor: "#4CAF50",
+          backgroundColor: "transparent",
+          tension: 0.3
+        }
+      ]
+    },
+    options: {
+      plugins: {
+        legend: {
+          labels: {
+            color: "#fff"
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: { color: "#aaa" }
+        },
+        y: {
+          ticks: { color: "#aaa" }
+        }
       }
     }
-    lastPos = current;
-  }, err => {
-    statusEl.textContent = '❌ خطأ في GPS';
-  }, { enableHighAccuracy: true });
+  });
 }
-
-function stopWalk() {
-  navigator.geolocation.clearWatch(watchId);
-  clearInterval(timer);
-  statusEl.textContent = '⏹️ تم الإيقاف';
-  startBtn.disabled = false;
-  stopBtn.disabled = true;
-}
-
-function resetWalk() {
-  stopWalk();
-  distance = 0;
-  lastPos = null;
-  distEl.textContent = '0.00';
-  calEl.textContent = '0';
-  timeEl.textContent = '00:00';
-  statusEl.textContent = 'جاهز';
-}
-
-startBtn.onclick = startWalk;
-stopBtn.onclick = stopWalk;
-resetBtn.onclick = resetWalk;
