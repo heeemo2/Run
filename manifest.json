@@ -1,15 +1,14 @@
 {
   "name": "متتبع المشي العربي",
   "short_name": "المشي",
-  "description": "تطبيق تتبع المشي العربي",
-  "start_url": "/Run/",
-  "scope": "/Run/",
+  "description": "تطبيق متتبع مشي مع حساب المسافة والتنبيه الصوتي",
+  "start_url": ".",
   "display": "standalone",
-  "background_color": "#ffffff",
+  "background_color": "#000000",
   "theme_color": "#4CAF50",
   "orientation": "portrait",
-  "dir": "rtl",
   "lang": "ar",
+  "dir": "rtl",
   "icons": [
     {
       "src": "icon-192.png",
